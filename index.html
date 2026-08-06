@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document1 - Word</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&family=Calibri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --title-bar: #2b579a;
+            --ribbon-bg: #f3f3f3;
+            --ribbon-border: #d1d1d1;
+            --tab-active: #ffffff;
+            --tab-text: #444;
+            --tab-active-text: #2b579a;
+            --toolbar-btn-hover: #e0e0e0;
+            --doc-bg: #e8e8e8;
+            --page-bg: #ffffff;
+            --page-text: #1a1a1a;
+            --ruler-bg: #ffffff;
+            --ruler-text: #888;
+            --status-bar: #2b579a;
+            --status-text: #ffffff;
+            --separator: #d1d1d1;
+            --toolbar-text: #333;
+            --cursor-color: #000;
+            --selection-bg: #b4d5fe;
+            --result-color: #2b579a;
+            --scrollbar-track: #f1f1f1;
+            --scrollbar-thumb: #c1c1c1;
+        }
+
+        .dark-mode {
+            --title-bar: #1e1e1e;
+            --ribbon-bg: #2d2d2d;
+            --ribbon-border: #3e3e3e;
+            --tab-active: #1e1e1e;
+            --tab-text: #bbb;
+            --tab-active-text: #4ca3ff;
+            --toolbar-btn-hover: #3e3e3e;
+            --doc-bg: #1e1e1e;
+            --page-bg: #2d2d2d;
+            --page-text: #e0e0e0;
+            --ruler-bg: #2d2d2d;
+            --ruler-text: #666;
+            --status-bar: #007acc;
+            --status-text: #ffffff;
+            --separator: #3e3e3e;
+            --toolbar-text: #ccc;
+            --cursor-color: #fff;
+            --selection-bg: #264f78;
+            --result-color: #4ca3ff;
+            --scrollbar-track: #2d2d2d;
+            --scrollbar-thumb: #555;
+        }
+
+        body {
+            font-family: 'Noto Sans', 'Segoe UI', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--doc-bg);
+            transition: background 0.3s;
+        }
+
+        /* Title Bar */
+        .title-bar {
+            background: var(--title-bar);
+            color: white;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            font-size: 12px;
+            user-select: none;
+            flex-shrink: 0;
+            justify-content: space-between;
+        }
+        .title-bar-left { display: flex; align-items: center; gap: 8px; }
+        .title-bar-center {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .title-bar-center svg { width: 16px; height: 16px; }
+        .title-bar-right { display: flex; align-items: center; }
+        .win-btn {
+            width: 46px; height: 32px; display: flex; align-items: center;
+            justify-content: center; border: none; background: transparent;
+            color: white; cursor: pointer; font-size: 10px;
+        }
+        .win-btn:hover { background: rgba(255,255,255,0.1); }
+        .win-btn.close:hover { background: #e81123; }
+
+        /* Quick Access */
+        .quick-access { display: flex; align-items: center; gap: 2px; }
+        .qa-btn {
+            width: 24px; height: 24px; display: flex; align-items: center;
+            justify-content: center; border: none; background: transparent;
+            color: white; cursor: pointer; border-radius: 3px; opacity: 0.8;
+        }
+        .qa-btn:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+
+        /* Ribbon Tabs */
+        .ribbon-tabs {
+            background: var(--ribbon-bg);
+            display: flex;
+            align-items: flex-end;
+            padding: 0 8px;
+            border-bottom: 1px solid var(--ribbon-border);
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+        .ribbon-tab {
+            padding: 6px 14px;
+            font-size: 12px;
+            color: var(--tab-text);
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background: transparent;
+            user-select: none;
+            transition: all 0.15s;
+            position: relative;
+        }
+        .ribbon-tab:hover { background: rgba(0,0,0,0.04); }
+        .ribbon-tab.active {
+            background: var(--tab-active);
+            color: var(--tab-active-text);
+            font-weight: 600;
+            border-color: var(--ribbon-border);
+            border-bottom: 1px solid var(--tab-active);
+            margin-bottom: -1px;
+        }
+        .file-tab {
+            background: var(--title-bar);
+            color: white !important;
+            border-radius: 2px 2px 0 0;
+            font-weight: 600;
+            padding: 6px 18px;
+        }
+        .dark-mode .file-tab { background: #0078d4; }
+
+        /* Ribbon Content */
+        .ribbon-content {
+            background: var(--tab-active);
+            border-bottom: 1px solid var(--ribbon-border);
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            min-height: 90px;
+            transition: background 0.3s;
+        }
+        .ribbon-group {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-right: 1px solid var(--separator);
+            height: 74px;
+            gap: 3px;
+        }
+        .ribbon-group:last-child { border-right: none; }
+        .ribbon-group-label {
+            font-size: 10px;
+            color: var(--ruler-text);
+            text-align: center;
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+        .ribbon-group-wrap {
+            position: relative;
+            padding-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 3px;
+            height: 100%;
+        }
+
+        .tool-btn {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; border: 1px solid transparent;
+            background: transparent; cursor: pointer; border-radius: 3px;
+            padding: 4px 6px; color: var(--toolbar-text); font-size: 10px;
+            gap: 2px; min-width: 28px; height: 56px;
+            transition: all 0.15s;
+        }
+        .tool-btn:hover { background: var(--toolbar-btn-hover); border-color: var(--ribbon-border); }
+        .tool-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .tool-btn.small {
+            flex-direction: row; height: 24px; padding: 2px 6px;
+            font-size: 11px; gap: 4px; min-width: unset;
+        }
+        .tool-btn.small svg { width: 16px; height: 16px; }
+
+        .font-select, .size-select {
+            height: 26px; border: 1px solid var(--ribbon-border);
+            background: var(--tab-active); color: var(--toolbar-text);
+            font-size: 12px; padding: 0 4px; border-radius: 3px;
+            outline: none; cursor: pointer;
+        }
+        .font-select { width: 140px; }
+        .size-select { width: 50px; }
+        .font-controls { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; max-width: 220px; }
+        .format-row { display: flex; gap: 2px; }
+
+        /* Ruler */
+        .ruler {
+            background: var(--ruler-bg);
+            height: 22px;
+            border-bottom: 1px solid var(--ribbon-border);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.3s;
+            overflow: hidden;
+        }
+        .ruler-inner {
+            width: 816px;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+        }
+        .ruler-marks {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            align-items: flex-end;
+            padding: 0 96px;
+        }
+        .ruler-mark {
+            font-size: 9px;
+            color: var(--ruler-text);
+            text-align: center;
+            flex: 1;
+        }
+
+        /* Document Area */
+        .doc-area {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0 60px;
+            background: var(--doc-bg);
+            transition: background 0.3s;
+        }
+        .doc-area::-webkit-scrollbar { width: 14px; }
+        .doc-area::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        .doc-area::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 0; border: 3px solid var(--scrollbar-track); }
+
+        /* Page */
+        .page {
+            width: 816px;
+            min-height: 1056px;
+            background: var(--page-bg);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            padding: 96px;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        /* Editor */
+        .editor {
+            width: 100%;
+            min-height: calc(1056px - 192px);
+            outline: none;
+            font-family: 'Calibri', 'Noto Sans', sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--page-text);
+            caret-color: var(--cursor-color);
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .editor:empty::before {
+            content: "Type....";
+            color: #aaa;
+            font-style: italic;
+            pointer-events: none;
+        }
+        .editor div { min-height: 1.6em; }
+
+        .result {
+            color: var(--result-color);
+            font-weight: 700;
+            user-select: all;
+        }
+        .result-error {
+            color: #e74c3c;
+            font-weight: 700;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--status-bar);
+            color: var(--status-text);
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            font-size: 11px;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .status-left, .status-right { display: flex; align-items: center; gap: 16px; }
+        .status-item { display: flex; align-items: center; gap: 4px; }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            display: flex; align-items: center; gap: 6px;
+            cursor: pointer; padding: 2px 8px; border-radius: 3px;
+            font-size: 11px;
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.15); }
+        .toggle-track {
+            width: 32px; height: 16px; border-radius: 8px;
+            background: rgba(255,255,255,0.3); position: relative;
+            transition: background 0.3s;
+        }
+        .toggle-knob {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: white; position: absolute; top: 2px; left: 2px;
+            transition: transform 0.3s;
+        }
+        .dark-mode .toggle-knob { transform: translateX(16px); }
+        .dark-mode .toggle-track { background: rgba(255,255,255,0.5); }
+
+        /* Tooltip */
+        .tool-btn[title] { position: relative; }
+
+        /* Responsive tweaks */
+        @media (max-width: 900px) {
+            .page { width: 100%; min-height: 100vh; padding: 40px; }
+            .ruler { display: none; }
+            .ribbon-content { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Title Bar -->
+    <div class="title-bar">
+        <div class="title-bar-left">
+            <div class="quick-access">
+                <button class="qa-btn" title="Save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                </button>
+                <button class="qa-btn" title="Undo" onclick="document.execCommand('undo')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                </button>
+                <button class="qa-btn" title="Redo" onclick="document.execCommand('redo')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="title-bar-center">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M21.17 3H2.83A1.83 1.83 0 0 0 1 4.83v14.34A1.83 1.83 0 0 0 2.83 21h18.34A1.83 1.83 0 0 0 23 19.17V4.83A1.83 1.83 0 0 0 21.17 3zM6.5 18l-1-.02L7.8 6h1.3l2.3 12h-.9L9.2 11.6 6.5 18zm5.1-1.8h-.6L13.5 6h1.4l2.5 10.2h-.7l-1.4-5.8-3.7 5.8z"/></svg>
+            Document1 - Word
+        </div>
+        <div class="title-bar-right">
+            <button class="win-btn">─</button>
+            <button class="win-btn">☐</button>
+            <button class="win-btn close">✕</button>
+        </div>
+    </div>
+
+    <!-- Ribbon Tabs -->
+    <div class="ribbon-tabs">
+        <div class="ribbon-tab file-tab">File</div>
+        <div class="ribbon-tab active">Home</div>
+        <div class="ribbon-tab">Insert</div>
+        <div class="ribbon-tab">Design</div>
+        <div class="ribbon-tab">Layout</div>
+        <div class="ribbon-tab">References</div>
+        <div class="ribbon-tab">Review</div>
+        <div class="ribbon-tab">View</div>
+    </div>
+
+    <!-- Ribbon Content -->
+    <div class="ribbon-content">
+        <!-- Clipboard Group -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-wrap">
+                <button class="tool-btn" title="Paste" style="height:58px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="1.5"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+                    <span>Paste</span>
+                </button>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <button class="tool-btn small" title="Cut" onclick="document.execCommand('cut')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="1.5"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+                        Cut
+                    </button>
+                    <button class="tool-btn small" title="Copy" onclick="document.execCommand('copy')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy
+                    </button>
+                </div>
+                <span class="ribbon-group-label">Clipboard</span>
+            </div>
+        </div>
+
+        <!-- Font Group -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-wrap">
+                <div class="font-controls">
+                    <div style="display:flex;gap:3px;align-items:center;">
+                        <select class="font-select" id="fontFamily" onchange="changeFont(this.value)">
+                            <option value="Calibri">Calibri</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Verdana">Verdana</option>
+                            <option value="Comic Sans MS">Comic Sans MS</option>
+                        </select>
+                        <select class="size-select" id="fontSize" onchange="changeFontSize(this.value)">
+                            <option value="1">8</option>
+                            <option value="2">10</option>
+                            <option value="3" selected>12</option>
+                            <option value="4">14</option>
+                            <option value="5">18</option>
+                            <option value="6">24</option>
+                            <option value="7">36</option>
+                        </select>
+                    </div>
+                    <div class="format-row">
+                        <button class="tool-btn small" title="Bold" onclick="document.execCommand('bold')" style="font-weight:bold;">B</button>
+                        <button class="tool-btn small" title="Italic" onclick="document.execCommand('italic')" style="font-style:italic;">I</button>
+                        <button class="tool-btn small" title="Underline" onclick="document.execCommand('underline')" style="text-decoration:underline;">U</button>
+                        <button class="tool-btn small" title="Strikethrough" onclick="document.execCommand('strikethrough')" style="text-decoration:line-through;">ab</button>
+                        <button class="tool-btn small" title="Text Color" style="position:relative;">
+                            <span style="border-bottom:3px solid #e74c3c;padding-bottom:1px;">A</span>
+                        </button>
+                        <button class="tool-btn small" title="Highlight" style="position:relative;">
+                            <span style="background:#ffff00;padding:0 3px;">ab</span>
+                        </button>
+                    </div>
+                </div>
+                <span class="ribbon-group-label">Font</span>
+            </div>
+        </div>
+
+        <!-- Paragraph Group -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-wrap">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <div class="format-row">
+                        <button class="tool-btn small" title="Align Left" onclick="document.execCommand('justifyLeft')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+                        </button>
+                        <button class="tool-btn small" title="Align Center" onclick="document.execCommand('justifyCenter')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+                        </button>
+                        <button class="tool-btn small" title="Align Right" onclick="document.execCommand('justifyRight')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div class="format-row">
+                        <button class="tool-btn small" title="Justify" onclick="document.execCommand('justifyFull')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                        </button>
+                        <button class="tool-btn small" title="Bulleted List" onclick="document.execCommand('insertUnorderedList')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><circle cx="4" cy="6" r="1.5" fill="var(--toolbar-text)"/><line x1="9" y1="6" x2="21" y2="6"/><circle cx="4" cy="12" r="1.5" fill="var(--toolbar-text)"/><line x1="9" y1="12" x2="21" y2="12"/><circle cx="4" cy="18" r="1.5" fill="var(--toolbar-text)"/><line x1="9" y1="18" x2="21" y2="18"/></svg>
+                        </button>
+                        <button class="tool-btn small" title="Numbered List" onclick="document.execCommand('insertOrderedList')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--toolbar-text)" stroke-width="2"><text x="2" y="8" font-size="7" fill="var(--toolbar-text)" stroke="none">1.</text><line x1="9" y1="6" x2="21" y2="6"/><text x="2" y="14" font-size="7" fill="var(--toolbar-text)" stroke="none">2.</text><line x1="9" y1="12" x2="21" y2="12"/><text x="2" y="20" font-size="7" fill="var(--toolbar-text)" stroke="none">3.</text><line x1="9" y1="18" x2="21" y2="18"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <span class="ribbon-group-label">Paragraph</span>
+            </div>
+        </div>
+
+        <!-- Calculator Info Group -->
+        <div class="ribbon-group" style="border-right:none;">
+            <div class="ribbon-group-wrap">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 12px;">
+                    <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#2b579a,#4ca3ff);display:flex;align-items:center;justify-content:center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><rect x="4" y="2" width="16" height="20" rx="2"/><rect x="6" y="4" width="12" height="4" rx="1" fill="rgba(255,255,255,0.3)"/><circle cx="8" cy="12" r="1.2" fill="white"/><circle cx="12" cy="12" r="1.2" fill="white"/><circle cx="16" cy="12" r="1.2" fill="white"/><circle cx="8" cy="16" r="1.2" fill="white"/><circle cx="12" cy="16" r="1.2" fill="white"/><circle cx="16" cy="16" r="1.2" fill="white"/><circle cx="8" cy="20" r="1.2" fill="white"/><circle cx="12" cy="20" r="1.2" fill="white"/><circle cx="16" cy="20" r="1.2" fill="white"/></svg>
+                    </div>
+                    <span style="font-size:10px;color:var(--toolbar-text);font-weight:600;">CalcMode</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--ruler-text);max-width:160px;padding:4px 0;">
+                    <span>✓ Type expression + <b>=</b></span>
+                    <span>✓ BODMAS supported</span>
+                    <span>✓ Multi-line calculations</span>
+                    <span>✓ Parentheses: (2+3)*4=</span>
+                </div>
+                <span class="ribbon-group-label">Calculator</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ruler -->
+    <div class="ruler">
+        <div class="ruler-inner">
+            <div class="ruler-marks">
+                <span class="ruler-mark">1</span>
+                <span class="ruler-mark">2</span>
+                <span class="ruler-mark">3</span>
+                <span class="ruler-mark">4</span>
+                <span class="ruler-mark">5</span>
+                <span class="ruler-mark">6</span>
+                <span class="ruler-mark">7</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Area -->
+    <div class="doc-area">
+        <div class="page">
+            <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-left">
+            <span class="status-item" id="pageInfo">Page 1 of 1</span>
+            <span class="status-item" id="wordCount">0 words</span>
+            <span class="status-item" id="charCount">0 characters</span>
+            <span class="status-item" id="lineCount">Line 1</span>
+        </div>
+        <div class="status-right">
+            <div class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                <span id="themeLabel">☀️ Light</span>
+                <div class="toggle-track">
+                    <div class="toggle-knob"></div>
+                </div>
+            </div>
+            <span class="status-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </span>
+            <span class="status-item">100%</span>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+
+        // =============== THEME TOGGLE ===============
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            document.getElementById('themeLabel').textContent = isDark ? '🌙 Dark' : '☀️ Light';
+            localStorage.setItem('wordCalcTheme', isDark ? 'dark' : 'light');
+        }
+
+        // Load saved theme
+        if (localStorage.getItem('wordCalcTheme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeLabel').textContent = '🌙 Dark';
+        }
+
+        // =============== FONT CONTROLS ===============
+        function changeFont(font) {
+            document.execCommand('fontName', false, font);
+            editor.focus();
+        }
+        function changeFontSize(size) {
+            document.execCommand('fontSize', false, size);
+            editor.focus();
+        }
+
+        // =============== RIBBON TAB SWITCHING ===============
+        document.querySelectorAll('.ribbon-tab').forEach(tab => {
+            tab.addEventListener('click', function () {
+                if (this.classList.contains('file-tab')) return;
+                document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // =============== SAFE MATH EVALUATOR (BODMAS) ===============
+        function safeEvaluate(expr) {
+            // Clean the expression
+            let cleaned = expr.replace(/\s+/g, '');
+            cleaned = cleaned.replace(/×/g, '*').replace(/÷/g, '/');
+            cleaned = cleaned.replace(/\^/g, '**');
+
+            // Validate: only allow numbers, operators, parentheses, decimal points
+            if (!/^[0-9+\-*/().%\s]+$/.test(cleaned)) {
+                return null;
+            }
+
+            // Check for balanced parentheses
+            let depth = 0;
+            for (const ch of cleaned) {
+                if (ch === '(') depth++;
+                if (ch === ')') depth--;
+                if (depth < 0) return null;
+            }
+            if (depth !== 0) return null;
+
+            // Check for empty expression
+            if (cleaned.length === 0) return null;
+
+            try {
+                // Use Function constructor for safe evaluation (BODMAS is handled natively)
+                const result = new Function('return (' + cleaned + ')')();
+
+                if (typeof result !== 'number' || !isFinite(result)) return null;
+
+                // Round to avoid floating point weirdness
+                return Math.round(result * 1e10) / 1e10;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // =============== PROCESS LINE FOR CALCULATION ===============
+        function processLine(text) {
+            // Find the pattern: expression= (possibly with existing result after =)
+            // We want to match everything before the last = sign
+            const eqIndex = text.lastIndexOf('=');
+            if (eqIndex === -1) return null;
+
+            const expression = text.substring(0, eqIndex).trim();
+            if (!expression) return null;
+
+            const result = safeEvaluate(expression);
+            return { expression, result, eqIndex };
+        }
+
+        // =============== HANDLE INPUT & KEYDOWN ===============
+        editor.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                // Process the current line before Enter creates a new line
+                setTimeout(() => evaluateAllLines(), 10);
+            }
+        });
+
+        editor.addEventListener('input', function (e) {
+            // Check if `=` was just typed
+            const sel = window.getSelection();
+            if (!sel.rangeCount) return;
+
+            const node = sel.anchorNode;
+            if (!node) return;
+
+            const text = node.textContent || '';
+            if (text.includes('=')) {
+                setTimeout(() => evaluateAllLines(), 0);
+            }
+
+            updateStatusBar();
+        });
+
+        function evaluateAllLines() {
+            const sel = window.getSelection();
+            let savedRange = null;
+            if (sel.rangeCount > 0) {
+                savedRange = sel.getRangeAt(0).cloneRange();
+            }
+
+            // Get all lines (direct children of editor or text nodes)
+            const lines = editor.querySelectorAll('div, p, br');
+            const children = editor.childNodes;
+
+            // Process based on structure
+            if (editor.children.length === 0 && editor.textContent.includes('=')) {
+                // Single text node
+                processTextNode(editor);
+            } else {
+                // Process each child element
+                children.forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        if (child.textContent.includes('=')) {
+                            processTextNode(child);
+                        }
+                    } else if (child.nodeType === Node.ELEMENT_NODE) {
+                        processElement(child);
+                    }
+                });
+            }
+
+            // Restore cursor
+            try {
+                if (savedRange) {
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+            } catch (e) {
+                // Cursor restoration failed, place at end
+                placeCaretAtEnd(editor);
+            }
+
+            updateStatusBar();
+        }
+
+        function processElement(el) {
+            // Get raw text from element
+            const fullText = el.textContent;
+            if (!fullText.includes('=')) return;
+
+            const eqIndex = fullText.lastIndexOf('=');
+            const expression = fullText.substring(0, eqIndex).replace(/\u00a0/g, ' ').trim();
+            const afterEq = fullText.substring(eqIndex + 1).trim();
+
+            if (!expression) return;
+
+            const result = safeEvaluate(expression);
+
+            // Remove existing result spans
+            el.querySelectorAll('.result, .result-error').forEach(r => r.remove());
+
+            // Find the = sign in text nodes and add result after it
+            if (result !== null) {
+                // Rebuild the element content
+                const beforeEqText = expression + '= ';
+                el.textContent = '';
+                el.appendChild(document.createTextNode(beforeEqText));
+                const resultSpan = document.createElement('span');
+                resultSpan.className = 'result';
+                resultSpan.textContent = formatNumber(result);
+                el.appendChild(resultSpan);
+            } else if (expression.length > 0) {
+                const beforeEqText = expression + '= ';
+                el.textContent = '';
+                el.appendChild(document.createTextNode(beforeEqText));
+                const resultSpan = document.createElement('span');
+                resultSpan.className = 'result-error';
+                resultSpan.textContent = 'Error';
+                el.appendChild(resultSpan);
+            }
+        }
+
+        function processTextNode(node) {
+            const text = node.textContent;
+            if (!text.includes('=')) return;
+
+            // If editor itself is the node, wrap in a div
+            if (node === editor) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                editor.textContent = '';
+                editor.appendChild(div);
+                processElement(div);
+                return;
+            }
+
+            // Wrap text node in a div and process
+            const parent = node.parentNode;
+            const div = document.createElement('div');
+            div.textContent = text;
+            parent.replaceChild(div, node);
+            processElement(div);
+        }
+
+        function formatNumber(num) {
+            if (Number.isInteger(num)) return num.toLocaleString();
+            // Show up to 6 decimal places
+            const fixed = parseFloat(num.toFixed(6));
+            return fixed.toLocaleString(undefined, { maximumFractionDigits: 6 });
+        }
+
+        function placeCaretAtEnd(el) {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+        // =============== STATUS BAR UPDATES ===============
+        function updateStatusBar() {
+            const text = editor.textContent || '';
+            const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+            const lines = (text.match(/\n/g) || []).length + 1;
+
+            document.getElementById('wordCount').textContent = words.length + ' word' + (words.length !== 1 ? 's' : '');
+            document.getElementById('charCount').textContent = text.length + ' characters';
+
+            // Current line
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const preRange = range.cloneRange();
+                preRange.selectNodeContents(editor);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                const textBefore = preRange.toString();
+                const currentLine = (textBefore.match(/\n/g) || []).length + 1;
+                document.getElementById('lineCount').textContent = 'Line ' + currentLine;
+            }
+        }
+
+        // =============== KEYBOARD SHORTCUT FOR THEME ===============
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                toggleTheme();
+            }
+        });
+
+        // Initial focus
+        editor.focus();
+        updateStatusBar();
+    </script>
+</body>
+</html>
