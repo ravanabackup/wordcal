@@ -284,7 +284,7 @@
             white-space: pre-wrap;
         }
         .editor:empty::before {
-            content: "Type....";
+            content: "Type your calculations here... (e.g., 15+2-8/8= then press Enter or just type =)";
             color: #aaa;
             font-style: italic;
             pointer-events: none;
@@ -492,11 +492,13 @@
                     </div>
                     <span style="font-size:10px;color:var(--toolbar-text);font-weight:600;">CalcMode</span>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--ruler-text);max-width:160px;padding:4px 0;">
+                <div style="display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--ruler-text);max-width:180px;padding:4px 0;">
                     <span>✓ Type expression + <b>=</b></span>
+                    <span>✓ Auto-solve on Enter</span>
                     <span>✓ BODMAS supported</span>
-                    <span>✓ Multi-line calculations</span>
-                    <span>✓ Parentheses: (2+3)*4=</span>
+                    <span>✓ Letters: a=1, b=2... z=26</span>
+                    <span>✓ Dot: b.n = count(2→14)</span>
+                    <span>✓ Ctrl+D for dark mode</span>
                 </div>
                 <span class="ribbon-group-label">Calculator</span>
             </div>
@@ -550,6 +552,147 @@
     <script>
         const editor = document.getElementById('editor');
 
+        // =============== ALPHABET TO NUMBER MAPPING ===============
+        // a=1, b=2, c=3, ... z=26
+        const ALPHABET_MAP = {
+            'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8,
+            'i': 9, 'j': 10, 'k': 11, 'l': 12, 'm': 13, 'n': 14, 'o': 15,
+            'p': 16, 'q': 17, 'r': 18, 's': 19, 't': 20, 'u': 21, 'v': 22,
+            'w': 23, 'x': 24, 'y': 25, 'z': 26
+        };
+
+        // Custom variables that users can define (e.g., typing "x=5" defines x as 5)
+        let customVars = {};
+
+        // Function to replace letters with their numeric values
+        function replaceLettersWithNumbers(expr) {
+            let result = expr;
+            
+            // First, substitute any custom variables
+            for (const [key, value] of Object.entries(customVars)) {
+                const regex = new RegExp('\\b' + key + '\\b', 'g');
+                result = result.replace(regex, value.toString());
+            }
+            
+            // Then replace remaining letters with alphabet positions
+            // Handle multi-char variables first (like "b.n" or "ab")
+            // Replace standalone letters that aren't part of custom vars
+            result = result.replace(/\b([a-z])\b/gi, (match) => {
+                const lower = match.toLowerCase();
+                return ALPHABET_MAP[lower] || match;
+            });
+            
+            return result;
+        }
+
+        // Handle special dot notation - COUNT from first to second letter
+        function preprocessExpression(expr) {
+            let result = expr.toLowerCase();
+            
+            // Convert × to * and ÷ to /
+            result = result.replace(/×/g, '*').replace(/÷/g, '/');
+            result = result.replace(/\^/g, '**');
+            
+            // Handle dot notation: b.n means count from b to n = (n - b + 1)
+            result = result.replace(/([a-z])\.([a-z])/g, (match, a, b) => {
+                const numA = ALPHABET_MAP[a] || 0;
+                const numB = ALPHABET_MAP[b] || 0;
+                // Return the count formula: second - first + 1
+                return `(${numB}-${numA}+1)`;
+            });
+            
+            // Handle mixed dot: letter.number or number.letter
+            result = result.replace(/([a-z])\.([0-9]+)/g, (match, a, num) => {
+                const numA = ALPHABET_MAP[a] || 0;
+                return `(${num}-${numA}+1)`;
+            });
+            result = result.replace(/([0-9]+)\.([a-z])/g, (match, num, b) => {
+                const numB = ALPHABET_MAP[b] || 0;
+                return `(${numB}-${num}+1)`;
+            });
+            
+            // Replace remaining letters with their positions
+            result = result.replace(/\b([a-z])\b/gi, (match) => {
+                const lower = match.toLowerCase();
+                return ALPHABET_MAP[lower] || match;
+            });
+            
+            return result;
+        }
+
+        // Generate display expression with letter mappings and count formula
+        function generateDisplayExpression(expr) {
+            let originalExpr = expr.toLowerCase();
+            let letterMap = [];
+            let countFormula = null;
+            
+            // Find all letter-to-number mappings
+            const letterRegex = /\b([a-z])\b/gi;
+            let match;
+            while ((match = letterRegex.exec(originalExpr)) !== null) {
+                const letter = match[1].toLowerCase();
+                const num = ALPHABET_MAP[letter];
+                if (num) {
+                    letterMap.push(`${match[1].toUpperCase()}=${num}`);
+                }
+            }
+            
+            // Check for dot notation and generate special display
+            const dotMatch = originalExpr.match(/([a-z])\.([a-z])/);
+            if (dotMatch) {
+                const a = dotMatch[1];
+                const b = dotMatch[2];
+                const numA = ALPHABET_MAP[a];
+                const numB = ALPHABET_MAP[b];
+                
+                if (numA && numB) {
+                    // For dot notation, show: count from A to B
+                    countFormula = `${numB} - ${numA} + 1`;
+                    letterMap = [`${a.toUpperCase()}=${numA}`, `${b.toUpperCase()}=${numB}`];
+                    letterMap = [...new Set(letterMap)];
+                    
+                    return { 
+                        display: countFormula, 
+                        mappings: letterMap,
+                        isDotNotation: true,
+                        fromLetter: a.toUpperCase(),
+                        toLetter: b.toUpperCase(),
+                        fromNum: numA,
+                        toNum: numB
+                    };
+                }
+            }
+            
+            // Process dot with numbers
+            const dotNumMatch = originalExpr.match(/([a-z])\.([0-9]+)/);
+            if (dotNumMatch) {
+                const a = dotNumMatch[1];
+                const num = parseInt(dotNumMatch[2]);
+                const numA = ALPHABET_MAP[a];
+                
+                countFormula = `${num} - ${numA} + 1`;
+                letterMap = [`${a.toUpperCase()}=${numA}`];
+                
+                return { 
+                    display: countFormula, 
+                    mappings: letterMap,
+                    isDotNotation: true,
+                    fromLetter: a.toUpperCase(),
+                    fromNum: numA,
+                    toNum: num
+                };
+            }
+            
+            // Regular expression - just replace letters
+            let display = originalExpr;
+            display = display.replace(/\b([a-z])\b/gi, (match) => {
+                const lower = match.toLowerCase();
+                return ALPHABET_MAP[lower] || match;
+            });
+            
+            return { display: display, mappings: [...new Set(letterMap)] };
+        }
+
         // =============== THEME TOGGLE ===============
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
@@ -585,12 +728,13 @@
 
         // =============== SAFE MATH EVALUATOR (BODMAS) ===============
         function safeEvaluate(expr) {
-            // Clean the expression
-            let cleaned = expr.replace(/\s+/g, '');
-            cleaned = cleaned.replace(/×/g, '*').replace(/÷/g, '/');
-            cleaned = cleaned.replace(/\^/g, '**');
+            // First preprocess to replace letters and special chars
+            let cleaned = preprocessExpression(expr);
+            
+            // Remove all whitespace
+            cleaned = cleaned.replace(/\s+/g, '');
 
-            // Validate: only allow numbers, operators, parentheses, decimal points
+            // Validate: only allow numbers, operators, parentheses, decimal points, and *
             if (!/^[0-9+\-*/().%\s]+$/.test(cleaned)) {
                 return null;
             }
@@ -635,10 +779,108 @@
         }
 
         // =============== HANDLE INPUT & KEYDOWN ===============
+        let lastSelection = null;
+
+        function saveSelection() {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                lastSelection = sel.getRangeAt(0).cloneRange();
+            }
+        }
+
+        function restoreSelection() {
+            if (lastSelection) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(lastSelection);
+            }
+        }
+
         editor.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
-                // Process the current line before Enter creates a new line
-                setTimeout(() => evaluateAllLines(), 10);
+                e.preventDefault(); // Prevent default first to control behavior
+                
+                // Get current line and process it
+                const sel = window.getSelection();
+                if (!sel.rangeCount) return;
+                
+                const range = sel.getRangeAt(0);
+                const preRange = range.cloneRange();
+                preRange.selectNodeContents(editor);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                const textBefore = preRange.toString();
+                
+                // Find current line text
+                const lines = textBefore.split('\n');
+                const currentLineText = lines[lines.length - 1];
+                
+                // If line has content but no =, add = and process
+                if (currentLineText.trim() && !currentLineText.includes('=')) {
+                    // Insert = at end of line, then process, then add newline
+                    const lineLength = currentLineText.length;
+                    
+                    // Move to end of current line content
+                    const newRange = document.createRange();
+                    newRange.setStart(range.startContainer, range.startOffset);
+                    newRange.collapse(true);
+                    
+                    // Insert = character
+                    const eqNode = document.createTextNode('=');
+                    newRange.insertNode(eqNode);
+                    
+                    // Move cursor after =
+                    newRange.setStartAfter(eqNode);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                    
+                    // Now process all lines
+                    setTimeout(() => {
+                        evaluateAllLines();
+                        
+                        // Add newline after processing
+                        setTimeout(() => {
+                            // Insert a new div for new line
+                            const newDiv = document.createElement('div');
+                            newDiv.innerHTML = '<br>';
+                            editor.appendChild(newDiv);
+                            
+                            // Move cursor to new line
+                            const newRange2 = document.createRange();
+                            newRange2.setStart(newDiv, 0);
+                            newRange2.collapse(true);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange2);
+                            
+                            placeCaretAtEnd(newDiv);
+                        }, 10);
+                    }, 0);
+                } else {
+                    // Line is empty or already has =, just add new line
+                    const newDiv = document.createElement('div');
+                    newDiv.innerHTML = '<br>';
+                    
+                    // If at end of editor, append
+                    if (range.endOffset === (range.startContainer.textContent || '').length ||
+                        range.startContainer === editor) {
+                        editor.appendChild(newDiv);
+                    } else {
+                        // Insert after current line
+                        const parentDiv = range.startContainer.closest ? 
+                            range.startContainer.closest('div') || editor : editor;
+                        if (parentDiv && parentDiv !== editor) {
+                            parentDiv.after(newDiv);
+                        } else {
+                            editor.appendChild(newDiv);
+                        }
+                    }
+                    
+                    const newRange = document.createRange();
+                    newRange.setStart(newDiv, 0);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
             }
         });
 
@@ -652,21 +894,18 @@
 
             const text = node.textContent || '';
             if (text.includes('=')) {
-                setTimeout(() => evaluateAllLines(), 0);
+                // Save cursor position before evaluation
+                saveSelection();
+                setTimeout(() => {
+                    evaluateAllLines();
+                    // Cursor stays where user was typing
+                }, 0);
             }
 
             updateStatusBar();
         });
 
         function evaluateAllLines() {
-            const sel = window.getSelection();
-            let savedRange = null;
-            if (sel.rangeCount > 0) {
-                savedRange = sel.getRangeAt(0).cloneRange();
-            }
-
-            // Get all lines (direct children of editor or text nodes)
-            const lines = editor.querySelectorAll('div, p, br');
             const children = editor.childNodes;
 
             // Process based on structure
@@ -686,46 +925,85 @@
                 });
             }
 
-            // Restore cursor
-            try {
-                if (savedRange) {
-                    sel.removeAllRanges();
-                    sel.addRange(savedRange);
-                }
-            } catch (e) {
-                // Cursor restoration failed, place at end
-                placeCaretAtEnd(editor);
-            }
-
             updateStatusBar();
         }
 
         function processElement(el) {
             // Get raw text from element
             const fullText = el.textContent;
+            
             if (!fullText.includes('=')) return;
 
             const eqIndex = fullText.lastIndexOf('=');
             const expression = fullText.substring(0, eqIndex).replace(/\u00a0/g, ' ').trim();
-            const afterEq = fullText.substring(eqIndex + 1).trim();
-
+            
             if (!expression) return;
+
+            // Check if this looks like a variable definition (single letter = number)
+            const varMatch = expression.match(/^([a-z])$/i);
+            if (varMatch) {
+                const afterEq = fullText.substring(eqIndex + 1).trim();
+                const varValue = parseFloat(afterEq);
+                if (!isNaN(varValue)) {
+                    defineVariable(varMatch[1], varValue);
+                    return;
+                }
+            }
+
+            // Check if expression contains letters
+            const hasLetters = /[a-zA-Z]/.test(expression);
+            let displayExpression = expression;
+            let letterMappings = [];
+            
+            if (hasLetters) {
+                const { display, mappings } = generateDisplayExpression(expression);
+                displayExpression = display;
+                letterMappings = mappings;
+            }
 
             const result = safeEvaluate(expression);
 
             // Remove existing result spans
             el.querySelectorAll('.result, .result-error').forEach(r => r.remove());
 
-            // Find the = sign in text nodes and add result after it
             if (result !== null) {
                 // Rebuild the element content
-                const beforeEqText = expression + '= ';
+                let beforeEqText;
+                let afterResultText = '';
+                
+                if (hasLetters) {
+                    const { display, mappings, isDotNotation, fromLetter, toLetter, fromNum, toNum } = 
+                        generateDisplayExpression(expression);
+                    
+                    letterMappings = mappings;
+                    displayExpression = display;
+                    
+                    if (isDotNotation) {
+                        // Special display for dot notation: "b.n → count B(2) to N(14)"
+                        beforeEqText = expression + ' → Count ' + fromLetter + '(' + fromNum + ') to ' + toLetter + '(' + toNum + '): ';
+                    } else if (displayExpression !== expression.toLowerCase()) {
+                        beforeEqText = expression + ' → ' + displayExpression + ' = ';
+                    } else {
+                        beforeEqText = expression + '= ';
+                    }
+                } else {
+                    beforeEqText = expression + '= ';
+                }
+                
                 el.textContent = '';
                 el.appendChild(document.createTextNode(beforeEqText));
                 const resultSpan = document.createElement('span');
                 resultSpan.className = 'result';
                 resultSpan.textContent = formatNumber(result);
                 el.appendChild(resultSpan);
+                
+                // Add letter mappings as a small note
+                if (hasLetters && letterMappings && letterMappings.length > 0) {
+                    const noteSpan = document.createElement('span');
+                    noteSpan.style.cssText = 'font-size:0.75em;color:var(--ruler-text);margin-left:8px;font-style:italic;';
+                    noteSpan.textContent = '[' + letterMappings.join(', ') + ']';
+                    el.appendChild(noteSpan);
+                }
             } else if (expression.length > 0) {
                 const beforeEqText = expression + '= ';
                 el.textContent = '';
@@ -773,6 +1051,27 @@
             range.collapse(false);
             sel.removeAllRanges();
             sel.addRange(range);
+            el.focus();
+        }
+
+        // Function to define custom variables
+        function defineVariable(name, value) {
+            if (/^[a-z]$/i.test(name)) {
+                customVars[name.toLowerCase()] = parseFloat(value) || 0;
+                return true;
+            }
+            return false;
+        }
+
+        // Function to get variable value
+        function getVarValue(name) {
+            if (name in customVars) {
+                return customVars[name];
+            }
+            if (name.toLowerCase() in ALPHABET_MAP) {
+                return ALPHABET_MAP[name.toLowerCase()];
+            }
+            return null;
         }
 
         // =============== STATUS BAR UPDATES ===============
