@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ink Calc — Smart Notebook</title>
+
+<!-- Three fonts, three jobs: Fraunces for the brand mark/headings,
+     Inter for every UI control, JetBrains Mono for numbers/results. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     THEME TOKENS
+     Navy ink + brass/gold accent. The gold pill around every
+     result, plus the giant faint "=" watermark on the page, are
+     this app's signature — everything else stays quiet.
+     ============================================================ */
+  :root{
+    --ink-900:#101a30;
+    --ink-800:#182a4a;
+    --ink-700:#233c66;
+    --gold-500:#c08a3e;
+    --gold-400:#d8ab6a;
+    --gold-100:#f6ead2;
+    --paper:#fffdf8;
+    --canvas:#e7e2d6;
+    --rule:#e7dfcd;
+    --line:#dcd4c2;
+    --ink-text:#241f16;
+    --muted:#8a8171;
+    --panel:#ffffff;
+    --shadow: 0 18px 45px -18px rgba(16,26,48,.35), 0 2px 8px rgba(16,26,48,.08);
+  }
+  body.dark{
+    --ink-900:#070d1a;
+    --ink-800:#0e1626;
+    --ink-700:#16233c;
+    --gold-500:#e3ac66;
+    --gold-400:#eec185;
+    --gold-100:#3a2f1c;
+    --paper:#1b1c20;
+    --canvas:#101115;
+    --rule:#2a2b30;
+    --line:#2c2d33;
+    --ink-text:#ece7db;
+    --muted:#8b8779;
+    --panel:#202126;
+    --shadow: 0 18px 45px -18px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.35);
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink-text);
+    background:var(--canvas);
+    transition:background .25s ease, color .25s ease;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+  }
+
+  .app{
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    animation: app-in .5s ease both;
+  }
+  @keyframes app-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+  /* ============================================================
+     TITLE BAR
+     ============================================================ */
+  .titlebar{
+    height:44px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 10px;
+    color:#fff;
+    background:linear-gradient(120deg, var(--ink-900), var(--ink-700));
+    user-select:none;
+  }
+  .titlebar-group{ display:flex; align-items:center; gap:4px; }
+  .icon-btn{
+    width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    border:none; border-radius:7px; background:transparent; color:#fff;
+    cursor:pointer; opacity:.82; transition:background .15s, opacity .15s, transform .15s;
+  }
+  .icon-btn:hover{ background:rgba(255,255,255,.14); opacity:1; }
+  .icon-btn:active{ transform:scale(.92); }
+  .icon-btn svg{ width:16px; height:16px; }
+
+  .brand{
+    position:absolute; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:9px;
+    font-family:'Fraunces',serif; font-weight:600; font-size:14.5px; letter-spacing:.2px;
+  }
+  .brand-mark{
+    width:22px; height:22px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--gold-400), var(--gold-500));
+    color:var(--ink-900); font-weight:700; font-size:14px;
+    box-shadow:0 2px 8px rgba(192,138,62,.5);
+  }
+
+  .win-btn{
+    width:42px; height:30px; border:none; background:transparent; color:#fff;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    border-radius:6px; transition:background .15s;
+  }
+  .win-btn svg{ width:13px; height:13px; }
+  .win-btn:hover{ background:rgba(255,255,255,.14); }
+  .win-btn.close:hover{ background:#c0392b; }
+  .win-btn.maximize.is-full{ color:var(--gold-400); }
+  .win-btn .icon-collapse{ display:none; }
+  .win-btn.is-full .icon-expand{ display:none; }
+  .win-btn.is-full .icon-collapse{ display:flex; }
+
+  /* ============================================================
+     RIBBON
+     ============================================================ */
+  .ribbon-tabs{
+    background:var(--panel);
+    display:flex; align-items:flex-end; gap:2px;
+    padding:0 10px; border-bottom:1px solid var(--line);
+    flex-shrink:0; overflow-x:auto;
+  }
+  .ribbon-tab{
+    padding:7px 15px; font-size:12.5px; font-weight:500; color:var(--muted);
+    background:transparent; border:none; cursor:pointer; white-space:nowrap;
+    border-radius:6px 6px 0 0; transition:background .15s, color .15s;
+  }
+  .ribbon-tab:hover{ color:var(--ink-text); background:rgba(0,0,0,.04); }
+  body.dark .ribbon-tab:hover{ background:rgba(255,255,255,.06); }
+  .ribbon-tab.active{ color:var(--gold-500); font-weight:700; }
+  .ribbon-tab.active::after{
+    content:""; display:block; height:2px; margin-top:6px; border-radius:2px;
+    background:linear-gradient(90deg, var(--gold-400), var(--gold-500));
+  }
+  .ribbon-tab.file{
+    color:#fff; background:linear-gradient(120deg, var(--ink-900), var(--ink-700));
+    border-radius:6px 6px 0 0; font-weight:700;
+  }
+
+  .ribbon-content{
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:8px 12px;
+    display:flex; align-items:stretch; gap:0;
+    min-height:92px; flex-shrink:0; overflow-x:auto;
+  }
+  .ribbon-group{
+    display:flex; align-items:center; padding:0 12px;
+    border-right:1px solid var(--line); gap:4px;
+  }
+  .ribbon-group:last-child{ border-right:none; }
+  .ribbon-group-wrap{
+    position:relative; padding-bottom:16px; height:100%;
+    display:flex; align-items:flex-start; gap:4px;
+  }
+  .ribbon-group-label{
+    position:absolute; bottom:1px; left:50%; transform:translateX(-50%);
+    font-size:9px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.4px; white-space:nowrap;
+  }
+
+  .tool-btn{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:2px; min-width:30px; height:58px; padding:4px 7px;
+    border:1px solid transparent; border-radius:7px; background:transparent;
+    color:var(--ink-text); font-size:10px; cursor:pointer; transition:.15s;
+  }
+  .tool-btn:hover{ background:var(--gold-100); border-color:var(--line); }
+  .tool-btn svg{ width:18px; height:18px; }
+  .tool-btn.small{
+    flex-direction:row; height:25px; padding:2px 8px; font-size:11px; gap:5px;
+    min-width:unset; border-radius:6px;
+  }
+  .tool-btn.small svg{ width:14px; height:14px; }
+
+  .field{
+    height:27px; border:1px solid var(--line); background:var(--panel);
+    color:var(--ink-text); font-size:12px; padding:0 6px; border-radius:6px;
+    outline:none; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .field:focus-visible{ outline:2px solid var(--gold-500); outline-offset:1px; }
+  .field.font{ width:142px; }
+  .field.size{ width:52px; }
+
+  .style-card{
+    width:90px; height:58px; border:1px solid var(--line); border-radius:7px;
+    background:var(--panel); display:flex; flex-direction:column; justify-content:center;
+    padding:5px 9px; gap:2px; cursor:pointer; transition:.15s;
+  }
+  .style-card:hover{ border-color:var(--gold-500); background:var(--gold-100); }
+  .style-card .name{ font-size:11px; color:var(--ink-text); }
+  .style-card .meta{ font-size:8.5px; color:var(--muted); }
+  .style-card .bar{ height:3px; border-radius:2px; margin-top:3px; background:linear-gradient(90deg,var(--gold-400),var(--gold-500)); }
+
+  .calc-badge{
+    width:36px; height:36px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--gold-400), var(--gold-500));
+    color:var(--ink-900); font-family:'Fraunces',serif; font-weight:700; font-size:19px;
+    box-shadow:0 4px 14px rgba(192,138,62,.4);
+  }
+  .calc-hint{ font-size:10px; color:var(--muted); line-height:1.5; }
+  .calc-hint b{ color:var(--ink-text); }
+
+  /* ============================================================
+     RULER
+     ============================================================ */
+  .ruler{
+    height:20px; background:var(--panel); border-bottom:1px solid var(--line);
+    display:flex; align-items:flex-end; justify-content:center; overflow:hidden; flex-shrink:0;
+  }
+  .ruler-marks{ width:816px; display:flex; padding:0 96px; }
+  .ruler-mark{
+    flex:1; font-size:9px; color:var(--muted); text-align:center;
+    border-left:1px solid var(--line); height:9px; padding-top:1px;
+  }
+
+  /* ============================================================
+     PAGE / EDITOR
+     ============================================================ */
+  .doc-area{
+    flex:1; overflow:auto; display:flex; justify-content:center;
+    padding:24px 0 70px; background:var(--canvas);
+  }
+  .doc-area::-webkit-scrollbar{ width:12px; }
+  .doc-area::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; border:3px solid var(--canvas); }
+  .doc-area::-webkit-scrollbar-thumb:hover{ background:var(--gold-500); }
+
+  .page{
+    width:816px; min-height:1056px; position:relative;
+    background:var(--paper); box-shadow:var(--shadow);
+    padding:96px; transform-origin:top center; transition:transform .18s ease, background .25s;
+    border-radius:2px;
+  }
+  .page::after{
+    content:"="; position:absolute; top:26px; right:44px; line-height:1;
+    font-family:'Fraunces',serif; font-weight:600; font-size:190px;
+    color:var(--ink-900); opacity:.035; pointer-events:none;
+  }
+  body.dark .page::after{ color:var(--gold-500); opacity:.06; }
+
+  .editor{
+    position:relative; min-height:calc(1056px - 192px);
+    font-family:'Inter',sans-serif; font-size:16px; line-height:1.7;
+    color:var(--ink-text); outline:none; word-wrap:break-word; white-space:pre-wrap;
+    background-image:repeating-linear-gradient(to bottom, transparent, transparent calc(1.7em - 1px), var(--rule) calc(1.7em - 1px), var(--rule) calc(1.7em));
+    background-attachment:local;
+  }
+  .editor div{ min-height:1.7em; }
+  .editor:empty::before{
+    content:"Type a calculation, then press Enter or type = to solve it — e.g. 15 + 2 - 8/8 =";
+    color:var(--muted); font-style:italic; pointer-events:none;
+  }
+
+  .result{
+    font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--gold-500);
+    background:var(--gold-100); padding:1px 7px; border-radius:5px; user-select:all;
+  }
+  .result-error{
+    font-family:'JetBrains Mono', monospace; font-weight:700; color:#d1483a;
+    background:rgba(209,72,58,.1); padding:1px 7px; border-radius:5px;
+  }
+  .mapping-note{ font-size:.78em; font-style:italic; font-weight:400; color:var(--muted); margin-left:7px; }
+
+  /* ============================================================
+     STATUS BAR
+     ============================================================ */
+  .status-bar{
+    height:26px; flex-shrink:0; color:#fff;
+    background:linear-gradient(120deg, var(--ink-900), var(--ink-700));
+    display:flex; align-items:center; justify-content:space-between; padding:0 14px;
+    font-size:11px; user-select:none;
+  }
+  .status-left{ display:flex; align-items:center; gap:16px; opacity:.95; }
+  .status-right{ display:flex; align-items:center; gap:14px; }
+
+  .theme-toggle{
+    display:flex; align-items:center; gap:7px; cursor:pointer;
+    padding:3px 9px; border-radius:20px; transition:background .15s;
+  }
+  .theme-toggle:hover{ background:rgba(255,255,255,.14); }
+  .toggle-track{ width:30px; height:15px; border-radius:8px; background:rgba(255,255,255,.28); position:relative; }
+  .toggle-knob{ width:11px; height:11px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; transition:transform .25s; }
+  body.dark .toggle-knob{ transform:translateX(15px); background:var(--gold-400); }
+
+  .zoom-btn{
+    width:18px; height:18px; border:none; border-radius:4px; background:rgba(255,255,255,.14);
+    color:#fff; cursor:pointer; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .zoom-btn:hover{ background:rgba(255,255,255,.26); }
+
+  /* ============================================================
+     TOAST
+     ============================================================ */
+  .toast{
+    position:fixed; left:50%; bottom:44px; transform:translate(-50%, 12px);
+    background:var(--ink-900); color:#fff; padding:9px 16px; border-radius:9px;
+    font-size:12.5px; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease; z-index:50; max-width:80vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  @media print{
+    .titlebar,.ribbon-tabs,.ribbon-content,.ruler,.status-bar,.toast{ display:none !important; }
+    .doc-area{ padding:0; background:#fff; }
+    .page{ box-shadow:none; width:auto; min-height:0; }
+  }
+
+  @media (max-width:900px){
+    .page{ width:100%; min-height:100vh; padding:32px 22px; }
+    .ruler{ display:none; }
+    .field.font{ width:100px; }
+    .brand span:last-child{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===================== TITLE BAR ===================== -->
+  <div class="titlebar">
+    <div class="titlebar-group">
+      <button class="icon-btn" id="btnSave" title="Save (download as .txt)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      </button>
+      <button class="icon-btn" id="btnUndo" title="Undo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button class="icon-btn" id="btnRedo" title="Redo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+      </button>
+      <button class="icon-btn" id="btnPrint" title="Print">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      </button>
+    </div>
+
+    <div class="brand">
+      <div class="brand-mark">=</div>
+      <span>Ink Calc</span> <span style="opacity:.55; font-weight:500;">— Smart Notebook</span>
+    </div>
+
+    <div class="titlebar-group">
+      <button class="win-btn" id="btnMinimize" title="Minimize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+      <button class="win-btn maximize" id="btnMaximize" title="Full screen (F11)">
+        <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <svg class="icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+      <button class="win-btn close" id="btnClose" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== RIBBON TABS ===================== -->
+  <div class="ribbon-tabs">
+    <button class="ribbon-tab file">File</button>
+    <button class="ribbon-tab active" data-tab>Home</button>
+    <button class="ribbon-tab" data-tab>Insert</button>
+    <button class="ribbon-tab" data-tab>Design</button>
+    <button class="ribbon-tab" data-tab>Layout</button>
+    <button class="ribbon-tab" data-tab>References</button>
+    <button class="ribbon-tab" data-tab>Review</button>
+    <button class="ribbon-tab" data-tab>View</button>
+  </div>
+
+  <!-- ===================== RIBBON CONTENT ===================== -->
+  <div class="ribbon-content">
+
+    <div class="ribbon-group">
+      <div class="ribbon-group-wrap">
+        <button class="tool-btn" id="btnPaste" title="Paste" style="height:58px; min-width:46px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+          <span style="font-size:10px;">Paste</span>
+        </button>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <button class="tool-btn small" data-cmd="cut" title="Cut">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+            Cut
+          </button>
+          <button class="tool-btn small" data-cmd="copy" title="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <span class="ribbon-group-label">Clipboard</span>
+      </div>
+    </div>
+
+    <div class="ribbon-group">
+      <div class="ribbon-group-wrap" style="flex-direction:column; align-items:flex-start; justify-content:center;">
+        <div style="display:flex; gap:4px; align-items:center;">
+          <select class="field font" id="fontSelect">
+            <option value="Inter">Inter</option>
+            <option value="Calibri">Calibri</option>
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="JetBrains Mono">JetBrains Mono</option>
+          </select>
+          <select class="field size" id="sizeSelect">
+            <option value="1">8</option><option value="2">10</option>
+            <option value="3" selected>12</option><option value="4">14</option>
+            <option value="5">18</option><option value="6">24</option><option value="7">36</option>
+          </select>
+          <button class="tool-btn small" data-cmd="removeFormat" title="Clear formatting" style="padding:2px 7px;">
+            <span style="font-weight:700;">A</span><span style="color:#d1483a; font-size:9px;">✕</span>
+          </button>
+        </div>
+        <div style="display:flex; gap:2px; margin-top:6px;">
+          <button class="tool-btn small" data-cmd="bold" title="Bold" style="width:28px; justify-content:center; font-weight:800;">B</button>
+          <button class="tool-btn small" data-cmd="italic" title="Italic" style="width:28px; justify-content:center; font-style:italic;">I</button>
+          <button class="tool-btn small" data-cmd="underline" title="Underline" style="width:28px; justify-content:center; text-decoration:underline;">U</button>
+          <button class="tool-btn small" data-cmd="strikeThrough" title="Strikethrough" style="width:28px; justify-content:center; text-decoration:line-through; font-size:10px;">ab</button>
+          <div style="width:1px; background:var(--line); margin:0 4px; height:24px; align-self:center;"></div>
+          <button class="tool-btn small" data-cmd="foreColor" data-value="#c08a3e" title="Text colour"><span style="border-bottom:3px solid #c08a3e; padding-bottom:1px; font-weight:700;">A</span></button>
+          <button class="tool-btn small" data-cmd="hiliteColor" data-value="#f6ead2" title="Highlight"><span style="background:#f6ead2; padding:0 5px; color:#241f16; border-radius:2px; font-weight:600; font-size:10px;">ab</span></button>
+        </div>
+        <span class="ribbon-group-label">Font</span>
+      </div>
+    </div>
+
+    <div class="ribbon-group">
+      <div class="ribbon-group-wrap">
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; gap:2px;">
+            <button class="tool-btn small" data-cmd="justifyLeft" title="Align left" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+            </button>
+            <button class="tool-btn small" data-cmd="justifyCenter" title="Align center" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="6" x2="19" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            </button>
+            <button class="tool-btn small" data-cmd="justifyRight" title="Align right" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="7" y1="18" x2="21" y2="18"/></svg>
+            </button>
+          </div>
+          <div style="display:flex; gap:2px;">
+            <button class="tool-btn small" data-cmd="insertUnorderedList" title="Bullets" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="4" cy="6" r="1.4" fill="currentColor"/><line x1="9" y1="6" x2="21" y2="6"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/><line x1="9" y1="12" x2="21" y2="12"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/><line x1="9" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <button class="tool-btn small" data-cmd="indent" title="Increase indent" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><polyline points="17 3 21 6 17 9"/></svg>
+            </button>
+            <button class="tool-btn small" data-cmd="outdent" title="Decrease indent" style="width:28px; justify-content:center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><polyline points="7 3 3 6 7 9"/></svg>
+            </button>
+          </div>
+        </div>
+        <span class="ribbon-group-label">Paragraph</span>
+      </div>
+    </div>
+
+    <div class="ribbon-group">
+      <div class="ribbon-group-wrap" style="gap:6px;">
+        <div class="style-card" data-cmd="formatBlock" data-value="DIV">
+          <span class="name">Normal</span><span class="meta">Inter 12</span><div class="bar"></div>
+        </div>
+        <div class="style-card" data-cmd="formatBlock" data-value="H2">
+          <span class="name" style="font-weight:700;">Heading</span><span class="meta">Fraunces</span>
+        </div>
+        <span class="ribbon-group-label">Styles</span>
+      </div>
+    </div>
+
+    <div class="ribbon-group" style="border-right:none; flex:1; min-width:230px;">
+      <div class="ribbon-group-wrap" style="gap:12px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+          <div class="calc-badge">=</div>
+          <span style="font-size:9px; font-weight:700; letter-spacing:.4px; color:var(--muted);">CALC MODE</span>
+        </div>
+        <div class="calc-hint">
+          <div>↵ <b>Enter</b> to auto-solve &amp; new line</div>
+          <div>＝ Type <b>expression +</b> "=" to solve</div>
+          <div>✓ Full BODMAS · letters a=1…z=26</div>
+          <div>✓ Range <b>b.n</b> counts B→N · Ctrl+D theme</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== RULER ===================== -->
+  <div class="ruler">
+    <div class="ruler-marks">
+      <div class="ruler-mark">1</div><div class="ruler-mark">2</div><div class="ruler-mark">3</div>
+      <div class="ruler-mark">4</div><div class="ruler-mark">5</div><div class="ruler-mark">6</div><div class="ruler-mark">7</div>
+    </div>
+  </div>
+
+  <!-- ===================== DOCUMENT ===================== -->
+  <div class="doc-area" id="docArea">
+    <div class="page" id="page">
+      <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+    </div>
+  </div>
+
+  <!-- ===================== STATUS BAR ===================== -->
+  <div class="status-bar">
+    <div class="status-left">
+      <span id="pageCount">Page 1 of 1</span>
+      <span id="wordCount">0 words</span>
+      <span id="charCount">0 characters</span>
+      <span id="lineCount">Line 1</span>
+    </div>
+    <div class="status-right">
+      <div class="theme-toggle" id="themeToggle" title="Toggle dark / light (Ctrl+D)">
+        <span id="themeLabel">☀️ Light</span>
+        <div class="toggle-track"><div class="toggle-knob"></div></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="zoom-btn" id="zoomOut">−</button>
+        <span id="zoomLabel" style="min-width:36px; text-align:center;">100%</span>
+        <button class="zoom-btn" id="zoomIn">+</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   INK CALC — a Word-styled notebook that solves math as you type.
+   Everything below is plain JavaScript, no build step required.
+   ================================================================ */
+
+const editor      = document.getElementById('editor');
+const page         = document.getElementById('page');
+const wordCountEl  = document.getElementById('wordCount');
+const charCountEl  = document.getElementById('charCount');
+const lineCountEl  = document.getElementById('lineCount');
+const toastEl      = document.getElementById('toast');
+
+/* ---------------------------------------------------------------
+   1. THE CALCULATOR ENGINE
+   Turns things like "b.e" or "3+4*2" into a number, and lets
+   single letters stand for their place in the alphabet (a=1..z=26).
+   --------------------------------------------------------------- */
+
+const LETTER_VALUE = {};
+'abcdefghijklmnopqrstuvwxyz'.split('').forEach((ch, i) => LETTER_VALUE[ch] = i + 1);
+
+// "15×2÷3^2" -> "15*2/3**2", letters -> numbers, "b.e" -> "(5-2+1)"
+function toExpression(input) {
+  let expr = input.toLowerCase();
+  expr = expr.replace(/×/g, '*').replace(/÷/g, '/');
+  expr = expr.replace(/\^/g, '**');
+
+  expr = expr.replace(/([a-z])\.([a-z])/g, (_, l1, l2) => {
+    const n1 = LETTER_VALUE[l1] || 0;
+    const n2 = LETTER_VALUE[l2] || 0;
+    return `(${n2}-${n1}+1)`;
+  });
+  expr = expr.replace(/([a-z])\.([0-9]+)/g, (_, l1, num) => {
+    const n1 = LETTER_VALUE[l1] || 0;
+    return `(${num}-${n1}+1)`;
+  });
+  expr = expr.replace(/([0-9]+)\.([a-z])/g, (_, num, l2) => {
+    const n2 = LETTER_VALUE[l2] || 0;
+    return `(${n2}-${num}+1)`;
+  });
+  expr = expr.replace(/\b([a-z])\b/gi, (m) => {
+    const n = LETTER_VALUE[m.toLowerCase()];
+    return n ? String(n) : m;
+  });
+  return expr;
+}
+
+// Builds the little "A=1, B=2 [...]" annotation shown after a result.
+function getMappingInfo(input) {
+  const lower = input.toLowerCase();
+  let mappings = [];
+  const re = /\b([a-z])\b/gi;
+  let m;
+  while ((m = re.exec(lower)) !== null) {
+    const n = LETTER_VALUE[m[1].toLowerCase()];
+    if (n) mappings.push(`${m[1].toUpperCase()}=${n}`);
+  }
+
+  const dotLL = lower.match(/([a-z])\.([a-z])/);
+  if (dotLL) {
+    const [, l1, l2] = dotLL;
+    const n1 = LETTER_VALUE[l1], n2 = LETTER_VALUE[l2];
+    if (n1 && n2) {
+      return {
+        display: `${n2} - ${n1} + 1`,
+        mappings: [...new Set([`${l1.toUpperCase()}=${n1}`, `${l2.toUpperCase()}=${n2}`])],
+        isDotNotation: true,
+        fromLetter: l1.toUpperCase(), toLetter: l2.toUpperCase(),
+        fromNum: n1, toNum: n2
+      };
+    }
+  }
+  const dotLN = lower.match(/([a-z])\.([0-9]+)/);
+  if (dotLN) {
+    const [, l1, numStr] = dotLN;
+    const n1 = LETTER_VALUE[l1];
+    const num = parseInt(numStr, 10);
+    return {
+      display: `${num} - ${n1} + 1`,
+      mappings: [`${l1.toUpperCase()}=${n1}`],
+      isDotNotation: true,
+      fromLetter: l1.toUpperCase(), toLetter: String(num),
+      fromNum: n1, toNum: num
+    };
+  }
+
+  const display = lower.replace(/\b([a-z])\b/gi, (mm) => {
+    const n = LETTER_VALUE[mm.toLowerCase()];
+    return n ? String(n) : mm;
+  });
+  return { display, mappings: [...new Set(mappings)], isDotNotation: false };
+}
+
+// Safely evaluates a cleaned arithmetic expression. Returns null on anything invalid.
+function evaluateExpression(input) {
+  let expr = toExpression(input).replace(/\s+/g, '');
+  if (!expr || !/^[0-9+\-*/().%]+$/.test(expr)) return null;
+
+  let depth = 0;
+  for (const ch of expr) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (depth < 0) return null;
+  }
+  if (depth !== 0) return null;
+
+  try {
+    const result = new Function('return (' + expr + ')')();
+    if (typeof result !== 'number' || !isFinite(result)) return null;
+    return Math.round(result * 1e10) / 1e10;
+  } catch {
+    return null;
+  }
+}
+
+function formatResult(num) {
+  return Number.isInteger(num)
+    ? num.toLocaleString()
+    : parseFloat(num.toFixed(6)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+/* ---------------------------------------------------------------
+   2. CARET / LINE HELPERS
+   Every line in the notebook is one <div> inside #editor.
+   --------------------------------------------------------------- */
+
+function placeCaretAtEnd(el) {
+  el.focus();
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function placeCaretAtStart(el) {
+  el.focus();
+  const range = document.createRange();
+  const sel = window.getSelection();
+  if (el.firstChild) range.setStart(el.firstChild, 0);
+  else range.setStart(el, 0);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function getCurrentLine() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  let node = sel.anchorNode;
+  if (!node) return null;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+  while (node && node !== editor) {
+    if (node.parentElement === editor) return node;
+    node = node.parentNode;
+  }
+  if (editor.children.length) return editor.children[editor.children.length - 1];
+  return null;
+}
+
+/* ---------------------------------------------------------------
+   3. SOLVING A LINE
+   --------------------------------------------------------------- */
+
+function processLine(lineDiv) {
+  let text = '';
+  let alreadyComputed = false;
+  for (const node of Array.from(lineDiv.childNodes)) {
+    if (node.nodeType === Node.ELEMENT_NODE &&
+        (node.classList.contains('result') || node.classList.contains('result-error') || node.classList.contains('mapping-note'))) {
+      alreadyComputed = true;
+      break;
+    }
+    text += node.textContent || '';
+  }
+  const raw = (alreadyComputed ? text : (lineDiv.textContent || '')).replace(/\u00a0/g, ' ');
+  const eqIndex = raw.lastIndexOf('=');
+  if (eqIndex === -1) return;
+
+  const expressionText = raw.substring(0, eqIndex).trim();
+  if (!expressionText) return;
+
+  const hasLetters = /[a-zA-Z]/.test(expressionText);
+  const value = evaluateExpression(expressionText);
+
+  lineDiv.querySelectorAll('.result, .result-error, .mapping-note').forEach(n => n.remove());
+  const mapInfo = hasLetters ? getMappingInfo(expressionText) : null;
+
+  if (value !== null) {
+    let prefix;
+    if (hasLetters && mapInfo) {
+      if (mapInfo.isDotNotation) {
+        const validRange = mapInfo.fromLetter && mapInfo.toLetter &&
+          !isNaN(mapInfo.fromNum) && !isNaN(mapInfo.toNum) && /^[A-Z]$/.test(mapInfo.toLetter);
+        prefix = validRange
+          ? `${expressionText} → Count ${mapInfo.fromLetter}(${mapInfo.fromNum}) to ${mapInfo.toLetter}(${mapInfo.toNum}): `
+          : `${expressionText} → ${mapInfo.display} = `;
+      } else if (mapInfo.display !== expressionText.toLowerCase()) {
+        prefix = `${expressionText} → ${mapInfo.display} = `;
+      } else {
+        prefix = `${expressionText}= `;
+      }
+    } else {
+      prefix = `${expressionText}= `;
+    }
+
+    lineDiv.textContent = '';
+    lineDiv.appendChild(document.createTextNode(prefix));
+    const resultSpan = document.createElement('span');
+    resultSpan.className = 'result';
+    resultSpan.textContent = formatResult(value);
+    lineDiv.appendChild(resultSpan);
+
+    if (hasLetters && mapInfo && mapInfo.mappings.length > 0) {
+      const note = document.createElement('span');
+      note.className = 'mapping-note';
+      note.textContent = ` [${mapInfo.mappings.join(', ')}]`;
+      lineDiv.appendChild(note);
+    }
+  } else {
+    lineDiv.textContent = '';
+    lineDiv.appendChild(document.createTextNode(`${expressionText}= `));
+    const errSpan = document.createElement('span');
+    errSpan.className = 'result-error';
+    errSpan.textContent = 'Error';
+    lineDiv.appendChild(errSpan);
+  }
+}
+
+function processAllLines() {
+  if (editor.children.length === 0 && editor.textContent && editor.textContent.includes('=')) {
+    const div = document.createElement('div');
+    div.textContent = editor.textContent;
+    editor.textContent = '';
+    editor.appendChild(div);
+    processLine(div);
+    return;
+  }
+  Array.from(editor.children).forEach(child => {
+    if (child instanceof HTMLElement && (child.textContent || '').includes('=')) {
+      processLine(child);
+    }
+  });
+}
+
+/* ---------------------------------------------------------------
+   4. TYPING BEHAVIOUR — Enter, live "=", paste, stats
+   --------------------------------------------------------------- */
+
+function updateStats() {
+  const text = editor.innerText || editor.textContent || '';
+  const words = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+  const totalLines = editor.children.length || 1;
+
+  let line = 1;
+  const currentLine = getCurrentLine();
+  if (currentLine && editor.contains(currentLine)) {
+    const idx = Array.from(editor.children).indexOf(currentLine);
+    if (idx !== -1) line = idx + 1;
+  }
+  line = Math.min(Math.max(line, 1), totalLines);
+
+  wordCountEl.textContent = `${words} words`;
+  charCountEl.textContent = `${text.length} characters`;
+  lineCountEl.textContent = `Line ${line}`;
+}
+
+function newEmptyLineAfter(el) {
+  const next = document.createElement('div');
+  next.innerHTML = '<br>';
+  el.after(next);
+  return next;
+}
+
+function finishLine(line) {
+  const text = (line.innerText || line.textContent || '').replace(/\u00a0/g, ' ').trim();
+
+  if (!text) {
+    placeCaretAtStart(newEmptyLineAfter(line));
+    updateStats();
+    return;
+  }
+  if (text.includes('=')) {
+    processLine(line);
+    placeCaretAtStart(newEmptyLineAfter(line));
+    updateStats();
+    return;
+  }
+  if (!line.querySelector('.result, .result-error')) {
+    if (line.innerHTML === '<br>') line.innerHTML = '';
+    line.appendChild(document.createTextNode('='));
+  }
+  processLine(line);
+  placeCaretAtStart(newEmptyLineAfter(line));
+  updateStats();
+}
+
+editor.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+
+  if (editor.children.length === 0) {
+    const content = (editor.textContent || '').trim();
+    editor.innerHTML = '';
+    const div = document.createElement('div');
+    if (content) div.textContent = content; else div.innerHTML = '<br>';
+    editor.appendChild(div);
+    finishLine(div);
+    return;
+  }
+
+  let line = getCurrentLine();
+  if (!line) {
+    line = editor.lastElementChild;
+    if (!line) {
+      line = document.createElement('div');
+      line.innerHTML = '<br>';
+      editor.appendChild(line);
+    }
+  }
+  finishLine(line);
+});
+
+editor.addEventListener('input', () => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) { updateStats(); return; }
+
+  let line = getCurrentLine();
+
+  if (!line && editor.children.length === 0 && (editor.textContent || '').includes('=')) {
+    const raw = editor.textContent;
+    const div = document.createElement('div');
+    div.textContent = raw;
+    editor.innerHTML = '';
+    editor.appendChild(div);
+    processLine(div);
+    placeCaretAtEnd(div);
+    updateStats();
+    return;
+  }
+
+  if (line && (line.textContent || '').includes('=')) {
+    const anchor = sel.anchorNode;
+    const anchorEl = anchor && anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor && anchor.parentElement;
+    const insideResult = anchorEl && anchorEl.closest && anchorEl.closest('.result, .result-error, .mapping-note');
+    if (!insideResult) {
+      processLine(line);
+      placeCaretAtEnd(line);
+    }
+  }
+  updateStats();
+});
+
+editor.addEventListener('keyup', updateStats);
+editor.addEventListener('click', updateStats);
+
+editor.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
+  setTimeout(() => { processAllLines(); updateStats(); }, 0);
+});
+
+/* ---------------------------------------------------------------
+   5. RIBBON COMMANDS (bold, italic, alignment, lists, etc.)
+   --------------------------------------------------------------- */
+
+function exec(cmd, value = null) {
+  document.execCommand(cmd, false, value);
+  editor.focus();
+}
+
+document.querySelectorAll('[data-cmd]').forEach(btn => {
+  btn.addEventListener('click', () => exec(btn.dataset.cmd, btn.dataset.value || null));
+});
+
+document.getElementById('fontSelect').addEventListener('change', (e) => exec('fontName', e.target.value));
+document.getElementById('sizeSelect').addEventListener('change', (e) => exec('fontSize', e.target.value));
+document.getElementById('btnUndo').addEventListener('click', () => exec('undo'));
+document.getElementById('btnRedo').addEventListener('click', () => exec('redo'));
+
+document.getElementById('btnSave').addEventListener('click', () => {
+  const blob = new Blob([editor.innerText || ''], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ink-notebook.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Saved as ink-notebook.txt');
+});
+
+document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+/* Ribbon tab switching is visual only, same as a real ribbon's inactive tabs. */
+document.querySelectorAll('.ribbon-tab[data-tab]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.ribbon-tab[data-tab]').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+/* ---------------------------------------------------------------
+   6. TITLE BAR — MINIMIZE / MAXIMIZE (real fullscreen!) / CLOSE
+   --------------------------------------------------------------- */
+
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+
+const maximizeBtn = document.getElementById('btnMaximize');
+
+function goFullscreen() {
+  const el = document.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (request) request.call(el).catch(() => showToast('The browser blocked full screen — try pressing F11 instead.'));
+  else showToast('Full screen isn\u2019t supported in this browser — try F11.');
+}
+function leaveFullscreen() {
+  const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  if (exit) exit.call(document);
+}
+
+maximizeBtn.addEventListener('click', () => {
+  const isFull = document.fullscreenElement || document.webkitFullscreenElement;
+  if (isFull) leaveFullscreen(); else goFullscreen();
+});
+
+function syncFullscreenIcon() {
+  const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  maximizeBtn.classList.toggle('is-full', isFull);
+  maximizeBtn.title = isFull ? 'Exit full screen (Esc)' : 'Full screen (F11)';
+}
+document.addEventListener('fullscreenchange', syncFullscreenIcon);
+document.addEventListener('webkitfullscreenchange', syncFullscreenIcon);
+
+document.getElementById('btnMinimize').addEventListener('click', () => {
+  showToast('A browser tab can\u2019t be minimized from the page \u2014 use your OS window controls.');
+});
+document.getElementById('btnClose').addEventListener('click', () => {
+  window.close();
+  setTimeout(() => showToast('Browsers only let you close a tab yourself \u2014 try Ctrl/Cmd+W.'), 150);
+});
+
+/* ---------------------------------------------------------------
+   7. ZOOM
+   --------------------------------------------------------------- */
+
+let zoom = 100;
+const zoomLabel = document.getElementById('zoomLabel');
+function setZoom(z) {
+  zoom = Math.min(200, Math.max(50, z));
+  page.style.transform = `scale(${zoom / 100})`;
+  zoomLabel.textContent = `${zoom}%`;
+}
+document.getElementById('zoomOut').addEventListener('click', () => setZoom(zoom - 10));
+document.getElementById('zoomIn').addEventListener('click', () => setZoom(zoom + 10));
+
+/* ---------------------------------------------------------------
+   8. THEME (dark / light, remembered across visits)
+   --------------------------------------------------------------- */
+
+const themeToggle = document.getElementById('themeToggle');
+const themeLabel  = document.getElementById('themeLabel');
+
+function setTheme(dark) {
+  document.body.classList.toggle('dark', dark);
+  themeLabel.textContent = dark ? '\ud83c\udf19 Dark' : '\u2600\ufe0f Light';
+  localStorage.setItem('inkCalcTheme', dark ? 'dark' : 'light');
+}
+themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    setTheme(!document.body.classList.contains('dark'));
+  }
+});
+
+/* ---------------------------------------------------------------
+   9. STARTUP
+   --------------------------------------------------------------- */
+
+setTheme(localStorage.getItem('inkCalcTheme') === 'dark');
+updateStats();
+setTimeout(() => editor.focus(), 150);
+
+const statsObserver = new MutationObserver(updateStats);
+statsObserver.observe(editor, { childList: true, subtree: true, characterData: true });
+</script>
+</body>
+</html>
