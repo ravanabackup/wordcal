@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ink Calc — Smart Notebook</title>
+<title>Sajin Calc — Smart Notebook</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -126,6 +126,16 @@
   .win-btn .icon-collapse{ display:none; }
   .win-btn.is-full .icon-expand{ display:none; }
   .win-btn.is-full .icon-collapse{ display:flex; }
+
+  #clockDisplay{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--chrome-text);
+    opacity:.85;
+    min-width:160px;
+    text-align:center;
+    letter-spacing:.5px;
+  }
 
   /* ===================== RIBBON ===================== */
   .ribbon-tabs{
@@ -478,6 +488,15 @@
   <!-- ===================== TITLE BAR ===================== -->
   <div class="titlebar">
     <div class="titlebar-group">
+      <div id="clockDisplay">00:00:00 · 01/01/2024</div>
+    </div>
+
+    <div class="brand">
+      <div class="brand-mark">=</div>
+      <span>Sajin Calc</span> <span style="opacity:.55; font-weight:500;">— Smart Notebook</span>
+    </div>
+
+    <div class="titlebar-group">
       <button class="icon-btn" id="btnSave" title="Save (download as .txt)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
       </button>
@@ -493,14 +512,6 @@
       <button class="icon-btn accent" id="btnStudioTop" title="Theme Studio (Ctrl+K)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="13.5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><path d="M12 2a10 10 0 1 0 0 20c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.5-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a6 6 0 0 0 6-6c0-4.9-4.5-8.7-10-8.7z"/></svg>
       </button>
-    </div>
-
-    <div class="brand">
-      <div class="brand-mark">=</div>
-      <span>Ink Calc</span> <span style="opacity:.55; font-weight:500;">— Smart Notebook</span>
-    </div>
-
-    <div class="titlebar-group">
       <button class="win-btn" id="btnMinimize" title="Minimize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
       <button class="win-btn maximize" id="btnMaximize" title="Full screen (F11)">
         <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -651,10 +662,6 @@
           <span style="font-size:9px; font-weight:700; letter-spacing:.4px; color:var(--muted);">CALC MODE</span>
         </div>
         <div class="calc-hint">
-          <div>↵ <b>Enter</b> to auto-solve &amp; new line</div>
-          <div>＝ Type <b>expression +</b> "=" to solve</div>
-          <div>✓ Full BODMAS · letters a=1…z=26</div>
-          <div>✓ <b>Ctrl+K</b> theme studio · <b>Ctrl+D</b> dark</div>
         </div>
       </div>
     </div>
@@ -764,6 +771,23 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
+
+/* ================================================================
+   LIVE CLOCK — updates time and date in the title bar
+   ================================================================ */
+function updateClock(){
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  
+  document.getElementById('clockDisplay').textContent = `${hours}:${minutes}:${seconds} · ${day}/${month}/${year}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
 
 /* ================================================================
    PART A — THEME ENGINE
@@ -959,8 +983,6 @@ function applyPreset(p){
   applyTheme(); renderStudio();
   showToast('Theme applied — ' + p.name);
 }
-/* keep the user's structural prefs when swapping palettes, reset the
-   "look" bits that presets are allowed to control */
 function UI_DEFAULTS_KEEP(){
   return { pattern:UI_DEFAULTS.pattern, resultStyle:UI_DEFAULTS.resultStyle,
            chromeStyle:UI_DEFAULTS.chromeStyle, texture:UI_DEFAULTS.texture,
@@ -976,7 +998,6 @@ function setToken(k, hex){
   return true;
 }
 
-/* accent trio from a single colour */
 function setAccent(hex){
   const c = clean(hex); if (!c) return;
   const dark = STATE.mode === 'dark';
@@ -987,7 +1008,6 @@ function setAccent(hex){
   applyTheme(); renderColors();
 }
 
-/* random but harmonious */
 function randomTheme(){
   const dark = Math.random() < .45;
   const h = Math.floor(Math.random() * 360);
@@ -1039,7 +1059,6 @@ function randomTheme(){
   showToast('🎲 ' + STATE.presetName + ' — hue ' + h + '°');
 }
 
-/* HSL master sliders operate on a snapshot so they stay reversible */
 let snapshot = null;
 function snap(){ snapshot = palette(); }
 function applyHSL(dh, ds, dl){
@@ -1093,7 +1112,6 @@ function switchRow(key, label){
   return `<div class="grow"><span>${label}</span><button class="switch ${STATE.ui[key] ? 'on' : ''}" data-key="${key}" aria-pressed="${!!STATE.ui[key]}"></button></div>`;
 }
 
-/* ---------- Presets pane ---------- */
 function renderPresets(){
   const wrap = $('#panePresets');
   wrap.innerHTML =
@@ -1128,7 +1146,6 @@ function renderPresets(){
   $('#btnModeSwap', wrap).addEventListener('click', () => setMode(STATE.mode === 'dark' ? 'light' : 'dark'));
 }
 
-/* ---------- Colours pane ---------- */
 function renderColors(){
   const wrap = $('#paneColors');
   const pal = palette();
@@ -1219,7 +1236,6 @@ function renderColors(){
   });
 }
 
-/* ---------- Type / Layout / FX panes ---------- */
 function renderType(){
   $('#paneType').innerHTML =
     `<div class="sec-title">Font families</div>
@@ -1282,7 +1298,6 @@ function renderFx(){
   $('#wmColorAuto').addEventListener('click', () => { STATE.ui.wmColor = ''; applyTheme(); renderFx(); });
 }
 
-/* ---------- Save / share pane ---------- */
 function renderSave(){
   $('#paneSave').innerHTML =
     `<div class="sec-title">Portable theme</div>
@@ -1331,7 +1346,6 @@ function copy(text, msg){
   });
 }
 
-/* ---------- generic wiring for sliders / selects / switches ---------- */
 function wireInputs(root){
   root.querySelectorAll('input[type=range][data-key]').forEach(sl => {
     sl.addEventListener('input', () => {
@@ -1361,7 +1375,6 @@ function wireInputs(root){
 
 function renderStudio(){ renderPresets(); renderColors(); renderType(); renderLayout(); renderFx(); renderSave(); }
 
-/* ---------- studio open / close + tabs ---------- */
 const studio = document.getElementById('studio');
 const scrim  = document.getElementById('scrim');
 function openStudio(pane){
@@ -1393,7 +1406,6 @@ document.querySelectorAll('.stab').forEach(tab => tab.addEventListener('click', 
   document.querySelector(`.spane[data-pane="${tab.dataset.pane}"]`).classList.add('active');
 }));
 
-/* quick accent swatches in the ribbon */
 const quick = document.getElementById('quickSwatches');
 QUICK_ACCENTS.forEach(c => {
   const b = document.createElement('button');
